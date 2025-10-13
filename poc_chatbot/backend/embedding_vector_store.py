@@ -9,6 +9,13 @@ class EmbeddingVectorStore:
         self.embedding_model = embedding_model
 
     def add_documents(self, documents: list[DocumentChunk], collection_name: str = "documents", distance: Distance = Distance.COSINE):
+        """Convert documents to embedding, and save to vectore db.
+
+        Args:
+            documents (list[DocumentChunk]): List of DocumentChunk to be embedded and stored.
+            collection_name (str, optional): Name of the collection to store the embeddings. Defaults to "documents".
+            distance (Distance, optional): Distance metric for the vector search. Defaults to Distance.COSINE.
+        """
         texts = [doc.text for doc in documents]
         titles = [doc.metadata.title if doc.metadata and doc.metadata.title else "" for doc in documents]
         if not self.qdrant_client.collection_exists(collection_name):

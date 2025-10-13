@@ -1,4 +1,3 @@
-import uuid
 import pymupdf4llm
 from poc_chatbot.backend.schema import DocumentChunk, DocumentChunkMetadata
 from poc_chatbot.backend.utils import generate_id

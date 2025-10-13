@@ -3,7 +3,6 @@ from poc_chatbot.backend.embedding_vector_store import EmbeddingVectorStore
 from poc_chatbot.infrastructure.llm_gemini import (
     GeminiEmbeddingTask,
     get_gemini_embedding_model,
-    get_gemini_llm,
 )
 from app_config import app_config
 from poc_chatbot.infrastructure.qdrant_client_instance import QdrantClientInstance
@@ -25,7 +24,9 @@ def main():
     )
 
     # Initialize Embedding Vector Store
-    vector_store = EmbeddingVectorStore(qdrant_client=qdrant_client, embedding_model=embedding_model)
+    vector_store = EmbeddingVectorStore(
+        qdrant_client=qdrant_client, embedding_model=embedding_model
+    )
 
     # Process Document and Add to Vector Store
     document_path = "assets/example_documents.pdf"
@@ -38,5 +39,29 @@ def main():
 
     print(f"Successfully added {len(chunks)} document chunks to the vector store.")
 
+
+def query_example():
+    qdrant_config = app_config.qdrant
+    qdrant_client = QdrantClientInstance.init(
+        host=qdrant_config.host,
+        port=qdrant_config.http_port,
+        api_key=qdrant_config.api_key.get_secret_value(),
+    )
+
+    gemini_api_key = app_config.gemini.api_key
+    llm = get_gemini_embedding_model(api_key=gemini_api_key, task_type=GeminiEmbeddingTask.RETRIEVAL_QUERY)
+
+    query_text = "What are the advantages of cloud computing?"
+    query_embedding = llm.embed_query(text=query_text)
+
+    results = qdrant_client.search(
+        collection_name="Testing-Documents", query_vector=query_embedding, limit=5
+    )
+
+    print("Query Results:")
+    for result in results:
+        print(result)
+
+
 if __name__ == "__main__":
-    main()
+    query_example()
