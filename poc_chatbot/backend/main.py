@@ -6,6 +6,8 @@ from poc_chatbot.infrastructure.llm_gemini import (
 )
 from app_config import app_config
 from poc_chatbot.infrastructure.qdrant_client_instance import QdrantClientInstance
+from poc_chatbot.backend.clean_text_pipeline import CleanTextPipeline
+from yake import KeywordExtractor
 
 
 def main():
@@ -27,15 +29,16 @@ def main():
     vector_store = EmbeddingVectorStore(
         qdrant_client=qdrant_client, embedding_model=embedding_model
     )
-
+    text_cleaner = CleanTextPipeline()
+    keyword_extractor = KeywordExtractor(lan="en", n=3, dedupLim=0.95, dedupFunc="jaro", top=3)
     # Process Document and Add to Vector Store
     document_path = "assets/example_documents.pdf"
-    document_pipeline = DocumentProcessingPipeline(source=document_path)
-    document_pipeline.load()
+    document_pipeline = DocumentProcessingPipeline(source=document_path, text_cleaner=text_cleaner, keyword_extractor=keyword_extractor)
+    document_pipeline.load(exclude_pages=list(range(0, 10)))
     chunks = document_pipeline.chunk()
     print(f"Total Chunks Processed: {len(chunks)}")
     print(f"Sample Chunk: {chunks[0].model_dump()}")
-    vector_store.add_documents(documents=chunks, collection_name="Testing-Documents")
+    vector_store.add_documents(documents=chunks, collection_name="AWS-White-Paper")
 
     print(f"Successfully added {len(chunks)} document chunks to the vector store.")
 
@@ -49,13 +52,15 @@ def query_example():
     )
 
     gemini_api_key = app_config.gemini.api_key
-    llm = get_gemini_embedding_model(api_key=gemini_api_key, task_type=GeminiEmbeddingTask.RETRIEVAL_QUERY)
+    llm = get_gemini_embedding_model(
+        api_key=gemini_api_key, task_type=GeminiEmbeddingTask.RETRIEVAL_QUERY
+    )
 
-    query_text = "What are the advantages of cloud computing?"
+    query_text = "Explain about amazon sagemaker!"
     query_embedding = llm.embed_query(text=query_text)
 
     results = qdrant_client.search(
-        collection_name="Testing-Documents", query_vector=query_embedding, limit=5
+        collection_name="AWS-White-Paper", query_vector=query_embedding, limit=5
     )
 
     print("Query Results:")
@@ -64,4 +69,5 @@ def query_example():
 
 
 if __name__ == "__main__":
+    # main()
     query_example()

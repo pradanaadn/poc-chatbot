@@ -2,13 +2,13 @@ from pydantic import BaseModel, Field
 
 
 class DocumentChunkMetadata(BaseModel):
-    page_number: int = Field(ge=1)
-    max_page: int = Field(ge=1)
-    source: str = Field(description="Source file path or URL")
-    subject: str | None = Field(default=None)
-    title: str = Field(default="")
+    # page_number: int = Field(ge=1)
+    # max_page: int = Field(ge=1)
+    # source: str = Field(description="Source file path or URL")
+    # subject: str | None = Field(default=None)
+    # title: str = Field(default="")
     keywords: list[str] = Field(default=[])
-    authors: list[str] = Field(default=[])
+    # authors: list[str] = Field(default=[])
 
 
 class DocumentChunk(BaseModel):
