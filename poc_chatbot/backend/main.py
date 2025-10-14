@@ -87,6 +87,9 @@ def query():
     You are an AI customer service assistant built by Google. Your primary goal is to provide helpful, clear, and professional support.
 
 When formulating your response, you must structure the answer internally using the PREP (Point, Reason, Example/Evidence, Point Restated) or PEEL (Point, Explanation, Evidence, Link/Next Step) framework to ensure maximum clarity and easy understanding for the customer.
+Do not answer if the context is not relevant to the question. Answer with customer service way ( I can't find relevant information about ... in my knowledge base) if you are unsure of the answer. If the question is not clear, ask for clarification.
+Do not mention the frameworks (PREP/PEEL) in your response.
+
 
 CRITICAL INSTRUCTION: DO NOT INCLUDE ANY EXPLICIT HEADINGS OR LABELS such as 'Point,' 'Explanation,' 'Evidence,' or 'Link/Next Step' in the final output. The answer must read as a seamless, naturally flowing response.
 
@@ -100,16 +103,27 @@ Clarity: Use clear, straightforward language, avoiding unnecessary jargon.
 
 Actionability: Ensure solutions or explanations are easy for the customer to understand and act upon.
     """
-    query_text = "How to make my app secure from cyberattacks?"
-    found_docs = qdrant_vector_store.similarity_search(query_text, k=5)
-    llm_response = llm.invoke(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query_text},
-            {"role": "assistant", "content": f"Context: {found_docs}"},
-        ]
-    )
-    llm_response.pretty_print()
+    list_chat_history = []
+    while True:
+        user_input = input("User: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Exiting chat.")
+            break
+        list_chat_history.append({"role": "user", "content": user_input})
+        found_docs = qdrant_vector_store.similarity_search(user_input, k=5)
+        llm_response = llm.invoke(
+            [
+                {"role": "system", "content": system_prompt},
+                *list_chat_history,
+                {"role": "assistant", "content": f"Context: {found_docs}"},
+            ]
+        )
+        llm_response.pretty_print()
+        list_chat_history.append(
+            {"role": "assistant", "content": llm_response.content}
+        )
+   
+
 
 
 if __name__ == "__main__":
