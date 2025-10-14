@@ -18,7 +18,7 @@ class QdrantClientInstance:
             QdrantClient: Instance of the QdrantClient
         """
         if cls.__client is None:
-            cls.__client = QdrantClient(host=host, port=port, api_key=api_key, https=False)
+            cls.__client = QdrantClient(host=host, port=port, api_key=api_key, https=False, timeout=120)
         return cls.__client
 
     @classmethod

@@ -1,37 +1,72 @@
-from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams
+from loguru import logger
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient, models
+from qdrant_client.http.models import Distance, VectorParams, SparseVectorParams
 from poc_chatbot.backend.schema import DocumentChunk
+from poc_chatbot.backend.utils import create_batches, document_adapter
 
-class EmbeddingVectorStore:
-    def __init__(self, qdrant_client: QdrantClient, embedding_model: GoogleGenerativeAIEmbeddings):
+
+class HybridEmbeddingVectorStore:
+    def __init__(self, qdrant_client: QdrantClient):
         self.qdrant_client = qdrant_client
-        self.embedding_model = embedding_model
 
-    def add_documents(self, documents: list[DocumentChunk], collection_name: str = "documents", distance: Distance = Distance.COSINE):
-        texts = [doc.text for doc in documents]
-        titles = [doc.metadata.title if doc.metadata and doc.metadata.title else "" for doc in documents]
+    def create_collection(
+        self,
+        collection_name: str,
+        vector_size: int = 3072,
+        distance: Distance = Distance.COSINE,
+    ):
+        """Create a collection in Qdrant if it does not exist.
+
+        Args:
+            collection_name (str): Name of the collection to create.
+            vector_size (int): Size of the vectors to be stored in the collection.
+            distance (Distance, optional): Distance metric for the vector search. Defaults to Distance.COSINE.
+        """
         if not self.qdrant_client.collection_exists(collection_name):
+            logger.info(f"Creating collection '{collection_name}' in Qdrant...")
             self.qdrant_client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=len(self.embedding_model.embed_query("test")), distance=distance),
-            )
-        embeddings = self.embedding_model.embed_documents(texts, batch_size=32, titles=titles)
-
-        points = []
-        for doc, embedding in zip(documents, embeddings):
-            point = {
-                "id": doc.chunk_id,
-                "vector": embedding,
-                "payload": {
-                    "text": doc.text,
-                    "metadata": doc.metadata.model_dump() if doc.metadata else {},
+                vectors_config={
+                    "dense": VectorParams(
+                        size=vector_size,
+                        distance=distance,
+                    )
                 },
-            }
-            points.append(point)
-        
-        self.qdrant_client.upsert(
-            collection_name=collection_name,
-            points=points
+                sparse_vectors_config={
+                    "sparse": SparseVectorParams(
+                        index=models.SparseIndexParams(on_disk=False)
+                    )
+                },
+            )
+            logger.info(f"Collection '{collection_name}' created.")
+        else:
+            logger.info(f"Collection '{collection_name}' already exists.")
+
+    def add_documents(
+        self,
+        documents: list[DocumentChunk],
+        vector_store: QdrantVectorStore,
+        vector_size: int = 3072,
+        distance: Distance = Distance.COSINE,
+        batch=64,
+    ):
+        """Convert documents to embedding, and save to vectore db.
+
+        Args:
+            documents (list[DocumentChunk]): List of DocumentChunk to be embedded and stored.
+            collection_name (str, optional): Name of the collection to store the embeddings. Defaults to "documents".
+            distance (Distance, optional): Distance metric for the vector search. Defaults to Distance.COSINE.
+        """
+      
+
+        documents, ids = document_adapter(documents)
+        batches_documents, batches_ids = (
+            create_batches(documents, batch),
+            create_batches(ids, batch),
         )
-    
+        for docs_batch, ids_batch in zip(batches_documents, batches_ids):
+            vector_store.add_documents(
+                documents=docs_batch,
+                ids=ids_batch,
+            )
