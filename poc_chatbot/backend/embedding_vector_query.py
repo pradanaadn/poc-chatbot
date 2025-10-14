@@ -1,8 +1,9 @@
-from qdrant_client import QdrantClient
+from langchain_qdrant import  QdrantVectorStore
 
 class EmbeddingVectorQuery:
-    def __init__(self, vector_store: QdrantClient):
+    def __init__(self, vector_store: QdrantVectorStore):
         self.vector_store = vector_store
+        
 
     def query(self, query_vector: list[float], top_k: int = 5, collection_name: str = "documents"):
         results = self.vector_store.search(
