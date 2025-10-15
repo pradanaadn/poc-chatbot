@@ -42,4 +42,3 @@ class AppConfig(BaseSettings):
     )
     
 app_config = AppConfig()
-print("App Config:", app_config)
