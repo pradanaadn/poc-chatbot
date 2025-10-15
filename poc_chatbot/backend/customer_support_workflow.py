@@ -64,107 +64,66 @@ class GradeDocument(BaseModel):
 
 class PromptCustomerSupport(BaseModel):
     generate_query_or_response: str = Field(
-        "You are an AI customer service assistant. Your task is to retrieve relevant information from the knowledge base to answer user queries."
-        " Use the document_retriever tool to search for relevant documents when the user asks a question."
-        " Do NOT engage in conversation, ask follow-up questions, or request additional information from users."
-        " Simply retrieve documents that might contain the answer to their query."
-        " If the user provides all necessary details (like email, username, issue description), still search for relevant documentation first.",
+        "You are a customer service AI. Use document_retriever to search the knowledge base when users ask questions."
+        " Do NOT ask follow-up questions or engage in conversation—just retrieve relevant documents.",
         description="Prompt for node generate_query_or_response",
     )
     grade_document_relevance: str = Field(
-        "You are an AI assistant that evaluates whether retrieved documents contain sufficient information to answer a user's query."
-        " Your task is to determine if you can provide a complete and accurate answer based solely on the provided context."
-        "\n\nRespond with one of FOUR values:\n"
-        " - 'relevant': The context contains sufficient information to fully answer the user's question."
-        "   You can generate a complete, accurate response using ONLY the information in the context."
-        "   Example: Query 'how to deploy AWS Lambda' + context with Lambda deployment steps → 'relevant'\n"
-        " - 'not_relevant': The context is about the same product/service/company, but does NOT contain the specific information needed to answer the question."
-        "   This means the query was TOO VAGUE about which aspect is needed, causing retrieval of related but unhelpful documents."
-        "   Example 1: Query 'how to deploy AWS Lambda' + context only has 'AWS Lambda pricing' → 'not_relevant' (same product, wrong aspect)"
-        "   Example 2: Query 'AWS billing issues' + context only has 'AWS deployment configs' → 'not_relevant' (same service, wrong topic)"
-        "   Example 3: Query 'account access problems' + context only has 'API authentication methods' → 'not_relevant' (related but different aspect)"
-        "   Example 4: Query 'how to secure my app' + context only has 'deployment steps' → 'not_relevant' (same app, but missing security info)"
-        "   When 'not_relevant': The query needs MORE SPECIFICITY about the aspect (deployment vs pricing vs security vs troubleshooting).\n"
-        " - 'create_ticket': The query requires ACTION, troubleshooting, or specific information that needs coordination with technical teams. Only for the query about errors that cannot be answered by context."
-        "   Use this when:"
-        "   - User reports an error, bug, or system malfunction (e.g., '500 error when deploying', 'API not responding')"
-        "   - User requests account-specific actions (e.g., 'reset my password', 'change my billing plan', 'delete my account')"
-        "   - User needs investigation of their specific case (e.g., 'why is my bill $1000', 'my deployment failed 3 times')"
-        "   - User requests features or changes (e.g., 'add support for Python 3.12', 'enable custom domain')"
-        "   - Query requires access to user's account data, logs, or system internals"
-        "   - Issue needs human intervention or technical team expertise"
-        "   Example 1: 'My deployment keeps failing with error XYZ' → 'create_ticket' (needs investigation)"
-        "   Example 2: 'Can you reset my password for john@example.com' → 'create_ticket' (requires action)"
-        "   Example 3: 'Why am I being charged $500 this month' → 'create_ticket' (needs account review)"
-        "   Example 4: 'The dashboard is not loading' → 'create_ticket' (system issue requiring investigation)\n"
-        " - 'query_not_match_with_document': The query and context are about completely different products, companies, or unrelated domains."
-        "   Example 1: Query about 'Google Cloud' + context about 'AWS services' → 'query_not_match_with_document'"
-        "   Example 2: Query about 'Microsoft Azure' + context about 'cooking recipes' → 'query_not_match_with_document'"
-        "   Example 3: Query about 'Python programming' + context about 'gardening tips' → 'query_not_match_with_document'\n"
-        "\nDecision criteria:"
-        " 1. Does the query require ACTION or investigation of user-specific data? If YES → 'create_ticket'"
-        " 2. Can you answer the question using ONLY the context? If YES → 'relevant'"
-        " 3. Are query and context about the same product/service? If NO → 'query_not_match_with_document'"
-        " 4. If same product but can't answer: Is it because the context covers a different aspect? If YES → 'not_relevant' (query too vague)"
-        " 5. Remember: 'create_ticket' is for actionable requests or user-specific issues, NOT for general questions that just need better retrieval",
+        "Evaluate if context can answer the query from the document's perspective. Return ONE value:\n\n"
+        "1. 'create_ticket' - Query needs ACTION or user-specific investigation:\n"
+        "   - Errors/bugs, account actions, user-specific issues, feature requests\n\n"
+        "2. 'relevant' - Context can answer query from its SPECIFIC PERSPECTIVE:\n"
+        "   - General queries (e.g., 'best practices') can be answered with specific examples from context (e.g., AWS best practices)\n"
+        "   - Context provides relevant information even if not comprehensive coverage\n"
+        "   - Partial but useful answers are still relevant\n\n"
+        "3. 'query_not_match_with_document' - Query and context are completely unrelated products/domains\n"
+        "   (e.g., Google Cloud query + AWS context about different topics)\n\n"
+        "4. 'not_relevant' - Same product BUT context doesn't address the specific aspect asked\n"
+        "   (e.g., deployment query + only pricing context)\n\n"
+        "Decision order: Check #1 first, then #2, then #3, then #4.",
         description="Prompt for node grade_document_relevance",
     )
     rewrite_query: str = Field(
-        "You are an AI assistant that rewrites user queries to improve retrieval accuracy."
-        " You are rewriting because the initial search found documents about the SAME product/service/company, but they didn't answer the specific question asked."
-        "\n\nYour task:"
-        " - Analyze the initial query to understand what the user is actually asking about"
-        " - Look at the context ONLY to identify relevant terminology or platform names that match the user's intent"
-        " - DO NOT change the topic or subject of the user's query"
-        " - If the context is about a different topic than the user's query, IGNORE it and focus on making the original query more specific"
-        "\n\nIMPORTANT RULES:"
-        " - Preserve the CORE TOPIC from the user's original query"
-        " - Only use context if it's actually relevant to what the user asked"
-        " - If the user asks about 'web application', keep it about web applications (NOT streaming, NOT databases, NOT other services)"
-        " - If the user asks about 'deployment', focus on deployment (NOT pricing, NOT monitoring)"
-        "\n\nHandling broad queries:"
-        " - 'best practices for web application' → 'best practices for deploying web applications' or 'web application security best practices'"
-        " - 'how to deploy' → 'how to deploy applications' or 'deployment steps for web services'"
-        " - 'pricing information' → 'pricing plans and costs' or 'billing information'"
-        "\n\nRewriting strategy:"
-        " - Make the query more specific while keeping the SAME topic"
-        " - Add clarifying terms that narrow the scope (e.g., 'deployment', 'security', 'performance')"
-        " - Use platform/technology names from context ONLY if they match what the user is asking about"
-        " - If context mentions a different topic (e.g., streaming when user asks about web apps), ignore the context"
-        " - Keep the rewritten query focused on the user's ORIGINAL intent"
-        "\n\nExamples:"
-        " - User: 'best practices for web application' + Context about 'AWS streaming' → Rewrite: 'best practices for web application deployment and architecture' (IGNORE streaming context)"
-        " - User: 'how to deploy' + Context about 'Lambda functions' → Rewrite: 'how to deploy applications using AWS Lambda' (USE context)"
-        " - User: 'security tips' + Context about 'pricing' → Rewrite: 'security best practices and recommendations' (IGNORE pricing context)"
-        "\n\nReturn only the rewritten query without explanations.",
+        "Rewrite query to improve retrieval. Initial search found same product docs but didn't answer the specific question.\n\n"
+        "Rules:\n"
+        "- Preserve CORE TOPIC from original query\n"
+        "- Make more specific while keeping same subject\n"
+        "- Add clarifying terms (deployment, security, performance)\n"
+        "- Use context terminology ONLY if relevant to user's intent\n"
+        "- If context is off-topic, ignore it and focus on original query\n\n"
+        "Examples:\n"
+        "- 'best practices' → 'best practices for deployment and security'\n"
+        "- 'how to deploy' → 'step-by-step deployment guide'\n\n"
+        "Return only rewritten query.",
         description="Prompt for node rewrite_query",
     )
     create_ticket: str = Field(
-        "You are an AI assistant that creates support tickets based on user interactions."
-        " Your task is to generate a concise and informative support ticket that summarizes the user's issue."
-        " The ticket should include a title, a detailed description of the issue, relevant labels or tags, and a priority level (low, medium, high, urgent)."
-        " Ensure the detail description captures the essence of the user's problem based on the conversation history provided."
-        " If the user's issue is not clear from the conversation, make reasonable assumptions to fill in the details (state if this an assumption)."
-        " Do not include any personally identifiable information (PII) in the ticket.",
+        "Create support ticket from conversation. Include:\n"
+        "- Title (max 200 chars)\n"
+        "- Detailed issue description\n"
+        "- Labels/tags\n"
+        "- Priority: low/medium/high/urgent\n\n"
+        "Capture essence of user's problem. Make reasonable assumptions if unclear (state assumptions). Exclude PII.",
         description="Prompt for node create_ticket",
     )
     generate_answer: str = Field(
-        "You are an AI customer service assistant. Your task is to provide accurate and helpful responses to user inquiries."
-        "You will be given some context to help you answer the question. If the context is relevant to the question, use it to formulate your answer."
-        " If the context is not relevant, do not use it and respond with a polite apology indicating that you couldn't find relevant information in your knowledge base to answer the question."
-        " Do not attempt to fabricate an answer or provide information that is not supported by the context.",
+        "Answer the user's question using the provided context. Extract ALL relevant details and present them directly.\n\n"
+        "Rules:\n"
+        "- If context contains ANY information related to the question, use it to provide a helpful answer\n"
+        "- Present actual features, capabilities, and details - not meta-descriptions\n"
+        "- For general questions, answer from the specific service/product perspective in context\n"
+        "- ONLY say 'no information found' if context is completely unrelated or empty\n\n"
+        "Examples:\n"
+        "❌ BAD: 'I can't find specific information on how X improves Y. The context mentions...'\n"
+        "✅ GOOD: 'X improves team collaboration through: 1. Feature A allows..., 2. Feature B enables...'\n\n"
+        "Do not fabricate information not in context.",
         description="Prompt for node generate_answer",
     )
     generate_sorry_response: str = Field(
-        "You are an AI customer service assistant."
-        " The system could not find relevant information in the knowledge base to answer the user's question."
-        " Inform the user that you couldn't find the relevant information they need."
-        " Tell them that a support ticket has been created and a human support agent will contact them to assist with their issue."
-        " Do NOT ask follow-up questions, engage in conversation, or request additional details."
-        " Keep your response brief, professional, and informative.",
+        "Inform user you couldn't find relevant information. Mention support ticket created and human agent will contact them."
+        " Keep brief and professional. Do NOT ask follow-up questions.",
         description="Prompt for node generate_sorry_response",
     )
-
 
 class CustomerSupportWorkflowState(BaseModel):
     user_query: str = Field(description="User's input query")
@@ -540,7 +499,7 @@ if __name__ == "__main__":
 
     state = CustomerSupportWorkflowState(
         user_query="""
-   What the best practice for web application?
+  What service that help collaborations?
         
         """,
     )
