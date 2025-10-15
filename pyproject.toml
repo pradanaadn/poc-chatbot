@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastembed>=0.7.3",
+    "grandalf>=0.8",
     "langchain-qdrant>=0.2.1",
     "langchain-text-splitters>=0.3.11",
     "langchain[google-genai]>=0.3.27",
