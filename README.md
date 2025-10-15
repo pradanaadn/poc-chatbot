@@ -15,14 +15,10 @@ Quick setup
 2. Start Qdrant:
    - docker compose -f docker-compose.yaml up -d
 3. Python venv & deps:
-   - python3.13 -m venv .venv
-   - source .venv/bin/activate
-   - pip install --upgrade pip
-   - pip install -e .
-4. Ingest example docs:
-   - python -c "from poc_chatbot.backend.main import add_documents; add_documents()"
-5. Run interactive query:
-   - python -m poc_chatbot.backend.main
+
+   ```bash
+    uv sync
+   ```
 
 Notes
 
