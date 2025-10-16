@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import BaseMessage, AIMessage
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field
 
 
 class UserTicket(BaseModel):
@@ -125,6 +125,27 @@ class PromptCustomerSupport(BaseModel):
         description="Prompt for node generate_sorry_response",
     )
 
+    def load_prompt(self) -> "PromptCustomerSupport":
+        """Load prompts from markdown files"""
+        from poc_chatbot.utils import read_markdown_file
+
+        self.generate_query_or_response = read_markdown_file(
+            "poc_chatbot/prompt/generate_query_or_response.md"
+        )
+        self.grade_document_relevance = read_markdown_file(
+            "poc_chatbot/prompt/grade_document_relevance.md"
+        )
+        self.rewrite_query = read_markdown_file("poc_chatbot/prompt/create_ticket.md")
+        self.create_ticket = read_markdown_file("poc_chatbot/prompt/create_ticket.md")
+        self.generate_answer = read_markdown_file(
+            "poc_chatbot/prompt/generate_answer.md"
+        )
+        self.generate_sorry_response = read_markdown_file(
+            "poc_chatbot/prompt/generate_sorry_response.md"
+        )
+        return self
+
+
 class CustomerSupportWorkflowState(BaseModel):
     user_query: str = Field(description="User's input query")
     rewritten_query: str | None = Field(None, description="Rewritten user query")
@@ -183,16 +204,18 @@ class CustomerSupportWorkflow:
         """
         workflow = StateGraph(CustomerSupportWorkflowState)
         workflow.add_node("generate_query_or_response", self.generate_query_or_response)
-        workflow.add_node("grade_document_relevance", self.grade_document_relevance)
+        # workflow.add_node("grade_document_relevance", self.grade_document_relevance)
         retrieve_node = ToolNode([self.retrieve_tool()], messages_key="histories")
         workflow.add_node("retrieve", retrieve_node)
         workflow.add_node("create_ticket", self.create_ticket)
         workflow.add_node("generate_answer", self.generate_answer)
         workflow.add_node("rewrite_query", self.rewrite_query)
-        workflow.add_node("is_use_tool", self.is_use_tool)
+        # workflow.add_node("is_use_tool", self.is_use_tool)
         workflow.add_node("generate_sorry_response", self.generate_sorry_response)
         workflow.add_node("store_context", self.store_context)
         workflow.add_edge(START, "generate_query_or_response")
+        # workflow.add_edge("generate_query_or_response", "is_use_tool")
+        
         workflow.add_conditional_edges(
             "generate_query_or_response",
             self.is_use_tool,
@@ -214,6 +237,8 @@ class CustomerSupportWorkflow:
             "rewrite_query",
             "generate_query_or_response",
         )
+      
+        
         workflow.add_edge("generate_sorry_response", END)
         workflow.add_edge("generate_answer", END)
         workflow.add_edge("create_ticket", END)
@@ -443,72 +468,75 @@ class CustomerSupportWorkflow:
         return self.__graph
 
 
-if __name__ == "__main__":
-    from app_config import app_config
-    from langchain_qdrant import FastEmbedSparse, QdrantVectorStore, RetrievalMode
-    from poc_chatbot.backend.embedding_vector_store import HybridEmbeddingVectorStore
-    from poc_chatbot.infrastructure.llm_gemini import (
-        get_gemini_llm,
-        get_gemini_embedding_model,
-        GeminiEmbeddingTask,
-    )
-    from poc_chatbot.infrastructure.qdrant_client_instance import QdrantClientInstance
+# if __name__ == "__main__":
+#     from app_config import app_config
+#     from langchain_qdrant import FastEmbedSparse, QdrantVectorStore, RetrievalMode
+#     from poc_chatbot.backend.embedding_vector_store import HybridEmbeddingVectorStore
+#     from poc_chatbot.infrastructure.llm_gemini import (
+#         get_gemini_llm,
+#         get_gemini_embedding_model,
+#         GeminiEmbeddingTask,
+#     )
+#     from poc_chatbot.infrastructure.qdrant_client_instance import QdrantClientInstance
 
-    qdrant_config = app_config.qdrant
-    qdrant_client = QdrantClientInstance.init(
-        host=qdrant_config.host,
-        port=qdrant_config.http_port,
-        api_key=qdrant_config.api_key.get_secret_value(),
-    )
-    gemini_api_key = app_config.gemini.api_key
-    embedding_model = get_gemini_embedding_model(
-        api_key=gemini_api_key, task_type=GeminiEmbeddingTask.RETRIEVAL_DOCUMENT
-    )
-    sparse_embeddings = FastEmbedSparse(model_name="Qdrant/bm25")
-    llm = get_gemini_llm(api_key=gemini_api_key)
+#     qdrant_config = app_config.qdrant
+#     qdrant_client = QdrantClientInstance.init(
+#         host=qdrant_config.host,
+#         port=qdrant_config.http_port,
+#         api_key=qdrant_config.api_key.get_secret_value(),
+#     )
+#     gemini_api_key = app_config.gemini.api_key
+#     embedding_model = get_gemini_embedding_model(
+#         api_key=gemini_api_key, task_type=GeminiEmbeddingTask.RETRIEVAL_DOCUMENT
+#     )
+#     sparse_embeddings = FastEmbedSparse(model_name="Qdrant/bm25")
+#     llm = get_gemini_llm(api_key=gemini_api_key)
 
-    qdrant_vector_store = QdrantVectorStore(
-        client=qdrant_client,
-        collection_name="hybrid_documents",
-        embedding=embedding_model,
-        sparse_embedding=sparse_embeddings,
-        retrieval_mode=RetrievalMode.HYBRID,
-        vector_name="dense",
-        sparse_vector_name="sparse",
-    )
-    prompt = PromptCustomerSupport()
-    workflow = CustomerSupportWorkflow(
-        llm_model=llm, vector_store=qdrant_vector_store, prompt=prompt
-    )
-    graph = workflow.get_compiled_graph()
-    #     state = CustomerSupportWorkflowState(
-    #         user_query="""
-    #    Hi, my account is blocked and I can't access my dashboard.
-    #    I tried resetting my password but didn't receive the reset email.
-    #    Can you help me resolve this issue quickly? My username is john_doe and my email is john_doe@example.com.
+#     qdrant_vector_store = QdrantVectorStore(
+#         client=qdrant_client,
+#         collection_name="hybrid_documents",
+#         embedding=embedding_model,
+#         sparse_embedding=sparse_embeddings,
+#         retrieval_mode=RetrievalMode.HYBRID,
+#         vector_name="dense",
+#         sparse_vector_name="sparse",
+#     )
+#     prompt = PromptCustomerSupport()
+#     workflow = CustomerSupportWorkflow(
+#         llm_model=llm, vector_store=qdrant_vector_store, prompt=prompt
+#     )
+#     graph = workflow.get_compiled_graph()
+#     #     state = CustomerSupportWorkflowState(
+#     #         user_query="""
+#     #    Hi, my account is blocked and I can't access my dashboard.
+#     #    I tried resetting my password but didn't receive the reset email.
+#     #    Can you help me resolve this issue quickly? My username is john_doe and my email is john_doe@example.com.
 
-    #         """,
-    #     )
+#     #         """,
+#     #     )
 
-    #     state = CustomerSupportWorkflowState(
-    #         user_query="""
-    #    What service does Alibaba Cloud provide for deploying serverless applications?
+#     #     state = CustomerSupportWorkflowState(
+#     #         user_query="""
+#     #    What service does Alibaba Cloud provide for deploying serverless applications?
 
-    #         """,
-    #     )
+#     #         """,
+#     #     )
 
-    state = CustomerSupportWorkflowState(
-        user_query="""
-  What service that help collaborations?
-        
-        """,
-    )
-    result_state = graph.invoke(state)
-    response = TypeAdapter(CustomerSupportWorkflowState).validate_python(result_state)
-    print("User Query:", response.user_query)
-    print("Rewritten Query:", response.rewritten_query)
-    print("Is Rewritten:", response.already_rewritten)
-    if response.generated_response:
-        print("Generated Response:", response.generated_response)
-    if response.ticket:
-        print("Generated Ticket:", response.ticket.model_dump())
+#     state = CustomerSupportWorkflowState(
+#         user_query="""
+#   What service that help collaborations?
+
+#         """,
+#     )
+#     # result_state = graph.invoke(state)
+#     # response = TypeAdapter(CustomerSupportWorkflowState).validate_python(result_state)
+#     # print("User Query:", response.user_query)
+#     # print("Rewritten Query:", response.rewritten_query)
+#     # print("Is Rewritten:", response.already_rewritten)
+#     # if response.generated_response:
+#     #     print("Generated Response:", response.generated_response)
+#     # if response.ticket:
+#     #     print("Generated Ticket:", response.ticket.model_dump())
+
+#     for message_chunk in graph.stream(state):
+#        print(message_chunk)

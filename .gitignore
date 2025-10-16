@@ -217,3 +217,4 @@ __marimo__/
 qdrant_data/
 .web/
 .states/
+.langgraph_api/

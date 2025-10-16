@@ -26,7 +26,7 @@ def get_gemini_llm(api_key: SecretStr) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash-lite",
         temperature=0,
-        max_output_tokens=2048,
+        max_output_tokens=7000,
         google_api_key=api_key.get_secret_value(),
         thinking_budget=0,
     )

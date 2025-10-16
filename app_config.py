@@ -27,10 +27,20 @@ class GeminiConfig(BaseSettings):
         extra="ignore",  
     )
 
+class LangsmithConfig(BaseSettings):
+    api_key: SecretStr = Field(json_schema_extra="LANGSMITH_API_KEY")
+    model_config = SettingsConfigDict(
+        env_prefix="LANGSMITH_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,  
+        extra="ignore",  
+    )
 class AppConfig(BaseSettings):
     http_host: str = Field("0.0.0.0", json_schema_extra="HTTP_HOST")
     http_port: int = Field(8000, json_schema_extra="HTTP_PORT")
 
+    langsmith: LangsmithConfig = LangsmithConfig()
     qdrant: QdrantConfig = QdrantConfig()
     gemini: GeminiConfig = GeminiConfig()
     model_config = SettingsConfigDict(
