@@ -125,6 +125,27 @@ class PromptCustomerSupport(BaseModel):
         description="Prompt for node generate_sorry_response",
     )
 
+    def load_prompt(self) -> "PromptCustomerSupport":
+        """Load prompts from markdown files"""
+        from poc_chatbot.utils import read_markdown_file
+
+        self.generate_query_or_response = read_markdown_file(
+            "poc_chatbot/prompt/generate_query_or_response.md"
+        )
+        self.grade_document_relevance = read_markdown_file(
+            "poc_chatbot/prompt/grade_document_relevance.md"
+        )
+        self.rewrite_query = read_markdown_file("poc_chatbot/prompt/create_ticket.md")
+        self.create_ticket = read_markdown_file("poc_chatbot/prompt/create_ticket.md")
+        self.generate_answer = read_markdown_file(
+            "poc_chatbot/prompt/generate_answer.md"
+        )
+        self.generate_sorry_response = read_markdown_file(
+            "poc_chatbot/prompt/generate_sorry_response.md"
+        )
+        return self
+
+
 class CustomerSupportWorkflowState(BaseModel):
     user_query: str = Field(description="User's input query")
     rewritten_query: str | None = Field(None, description="Rewritten user query")
@@ -500,7 +521,7 @@ class CustomerSupportWorkflow:
 #     state = CustomerSupportWorkflowState(
 #         user_query="""
 #   What service that help collaborations?
-        
+
 #         """,
 #     )
 #     # result_state = graph.invoke(state)
@@ -512,6 +533,6 @@ class CustomerSupportWorkflow:
 #     #     print("Generated Response:", response.generated_response)
 #     # if response.ticket:
 #     #     print("Generated Ticket:", response.ticket.model_dump())
-    
+
 #     for message_chunk in graph.stream(state):
 #        print(message_chunk)

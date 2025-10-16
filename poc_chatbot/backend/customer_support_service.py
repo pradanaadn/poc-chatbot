@@ -56,8 +56,9 @@ class CustomerSupportService:
 
 
 if __name__ == "__main__":
-    service = CustomerSupportService()
+    prompt = PromptCustomerSupport().load_prompt()
+    service = CustomerSupportService(prompt=prompt)
     response = service.run(
-        user_query="how to deploy a machine learning model with amazon sagemaker step by step?"
+        user_query="I found bug on the Wallet using Active RFID card. It keep raise error 'Card not detected'. I want to request for new card"
     )
     print(response.model_dump_json(indent=2))

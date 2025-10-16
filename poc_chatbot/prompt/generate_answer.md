@@ -34,6 +34,8 @@ You MUST format your answer using the following structure:
 - If the topic is particularly complex, and the context provides enough information, you can include a simple analogy to help the user understand.
 - Example: `You can think of a Virtual Private Cloud (VPC) like your own private, fenced-off area within a large public park (the cloud provider).`
 
+DO NOT FOLLOW THE HEADER THE SAME AS ABOVE (MORE NATURAL)!
+
 ---
 
 ## HANDLING INSUFFICIENT INFORMATION
