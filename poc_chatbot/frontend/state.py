@@ -3,11 +3,11 @@ from typing import Any, TypedDict
 import reflex as rx
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
+from poc_chatbot.backend.customer_support_service import CustomerSupportService
+from poc_chatbot.backend.customer_support_workflow import PromptCustomerSupport
 
-# Checking if the API key is set properly
-if not os.getenv("OPENAI_API_KEY"):
-    raise Exception("Please set OPENAI_API_KEY environment variable.")
-
+prompt = PromptCustomerSupport().load_prompt()
+service = CustomerSupportService(prompt=prompt)
 
 class QA(TypedDict):
     """A question and answer pair."""
@@ -111,9 +111,36 @@ class State(rx.State):
         if not question:
             return
 
-        async for value in self.openai_process_question(question):
+        async for value in self.service(question):
             yield value
+    @rx.event
+    async def service(self, question: str):
+        qa = QA(question=question, answer="")
+        self._chats[self.current_chat].append(qa)
 
+        # Clear the input and start the processing.
+        self.processing = True
+        yield
+        try:
+            response = service.run(user_query=question)
+        except Exception as e:
+            self._chats[self.current_chat][-1]["answer"] = f"Service error: {e}"
+            self._chats = self._chats
+            self.processing = False
+            yield
+            return
+
+        answer_text = ""
+      
+        answer_text = str(response.generated_response)
+        self._chats[self.current_chat][-1]["answer"] += answer_text
+        self._chats = self._chats
+        yield
+
+        # Toggle the processing flag and yield final update.
+        self.processing = False
+        yield
+        
     @rx.event
     async def openai_process_question(self, question: str):
         """Get the response from the API.

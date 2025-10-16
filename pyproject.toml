@@ -6,11 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastembed>=0.7.3",
+    "gradio>=5.23.1",
     "grandalf>=0.8",
     "langchain-qdrant>=0.2.1",
     "langchain-text-splitters>=0.3.11",
     "langchain[google-genai]>=0.3.27",
     "langgraph>=0.6.10",
+    "langgraph-cli[inmem]>=0.4.3",
     "llama-index>=0.14.4",
     "loguru>=0.7.3",
     "nltk>=3.9.2",

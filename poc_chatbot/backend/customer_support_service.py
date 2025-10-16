@@ -1,3 +1,4 @@
+import os
 from langchain_qdrant import FastEmbedSparse, QdrantVectorStore, RetrievalMode
 from pydantic import TypeAdapter
 from app_config import AppConfig, app_config
@@ -15,6 +16,7 @@ from poc_chatbot.backend.customer_support_workflow import (
 from poc_chatbot.infrastructure.qdrant_client_instance import QdrantClientInstance
 
 
+os.environ["LANGSMITH_API_KEY"] = app_config.langsmith.api_key.get_secret_value()
 class CustomerSupportService:
     def __init__(self, config: AppConfig = app_config, prompt=PromptCustomerSupport()):
         self.config = config
@@ -28,6 +30,8 @@ class CustomerSupportService:
             port=config.qdrant.http_port,
             api_key=config.qdrant.api_key.get_secret_value(),
         )
+        self.hybrid_vector_store = HybridEmbeddingVectorStore(self.qdrant_client)
+        # self.hybrid_vector_store.create_collection(collection_name="hybrid_documents")
         self.vector_store = QdrantVectorStore(
             client=self.qdrant_client,
             collection_name="hybrid_documents",
@@ -37,10 +41,6 @@ class CustomerSupportService:
             vector_name="dense",
             sparse_vector_name="sparse",
         )
-        self.hybrid_vector_store = HybridEmbeddingVectorStore(self.qdrant_client)
-
-        self.hybrid_vector_store.create_collection(collection_name="hybrid_documents")
-
         self.workflow = CustomerSupportWorkflow(
             llm_model=self.llm, vector_store=self.vector_store, prompt=prompt
         )
@@ -55,10 +55,10 @@ class CustomerSupportService:
         return state_adapter
 
 
-if __name__ == "__main__":
-    prompt = PromptCustomerSupport().load_prompt()
-    service = CustomerSupportService(prompt=prompt)
-    response = service.run(
-        user_query="I found bug on the Wallet using Active RFID card. It keep raise error 'Card not detected'. I want to request for new card"
-    )
-    print(response.model_dump_json(indent=2))
+prompt = PromptCustomerSupport().load_prompt()
+service = CustomerSupportService(prompt=prompt)
+graph = service.workflow.get_compiled_graph()
+# response = service.run(
+#     user_query="I found bug on the Wallet using Active RFID card. It keep raise error 'Card not detected'. I want to request for new card"
+# )
+# print(response.model_dump_json(indent=2))

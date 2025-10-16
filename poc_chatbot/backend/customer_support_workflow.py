@@ -204,16 +204,18 @@ class CustomerSupportWorkflow:
         """
         workflow = StateGraph(CustomerSupportWorkflowState)
         workflow.add_node("generate_query_or_response", self.generate_query_or_response)
-        workflow.add_node("grade_document_relevance", self.grade_document_relevance)
+        # workflow.add_node("grade_document_relevance", self.grade_document_relevance)
         retrieve_node = ToolNode([self.retrieve_tool()], messages_key="histories")
         workflow.add_node("retrieve", retrieve_node)
         workflow.add_node("create_ticket", self.create_ticket)
         workflow.add_node("generate_answer", self.generate_answer)
         workflow.add_node("rewrite_query", self.rewrite_query)
-        workflow.add_node("is_use_tool", self.is_use_tool)
+        # workflow.add_node("is_use_tool", self.is_use_tool)
         workflow.add_node("generate_sorry_response", self.generate_sorry_response)
         workflow.add_node("store_context", self.store_context)
         workflow.add_edge(START, "generate_query_or_response")
+        # workflow.add_edge("generate_query_or_response", "is_use_tool")
+        
         workflow.add_conditional_edges(
             "generate_query_or_response",
             self.is_use_tool,
@@ -235,6 +237,8 @@ class CustomerSupportWorkflow:
             "rewrite_query",
             "generate_query_or_response",
         )
+      
+        
         workflow.add_edge("generate_sorry_response", END)
         workflow.add_edge("generate_answer", END)
         workflow.add_edge("create_ticket", END)
